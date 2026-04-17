@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Terminal Minesweeper Widget</title>
+  <title>Terminal game Widget</title>
 </head>
 <body>
 <!-- Terminal Minesweeper Widget -->
@@ -173,6 +173,16 @@
       z-index: 3;
       margin-bottom: 12px;
       font-size: 0.95rem;
+    }
+
+    #ms-terminal-app .ms-status a {
+      color: inherit;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+
+    #ms-terminal-app .ms-status a:hover {
+      opacity: 0.85;
     }
 
     /* Colors for adjacent mine counts */
@@ -396,7 +406,7 @@
         isGameOver = true;
         clearInterval(timerInterval);
         if (won) {
-          msgEl.textContent = '> MAIN SYSTEM: SECURED.';
+          msgEl.innerHTML = '> MAIN SYSTEM: SECURED. <a href="https://iwanami.me" target="_blank" rel="noopener noreferrer">iwanami.me</a>';
           msgEl.style.color = '#FCE83A';
           // Flag all remaining unflagged mines naturally
           board.forEach(cell => {
