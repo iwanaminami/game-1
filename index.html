@@ -1,0 +1,432 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Terminal Minesweeper Widget</title>
+</head>
+<body>
+<!-- Terminal Minesweeper Widget -->
+<div id="ms-terminal-app">
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: transparent;
+    }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+    }
+
+    /* Scoped CSS for Terminal Minesweeper */
+    #ms-terminal-app {
+      font-family: 'Courier New', Courier, monospace;
+      background-color: #050505;
+      color: #00FF41;
+      padding: 15px;
+      border: 1px solid #00FF41;
+      box-shadow: 0 0 15px rgba(0, 255, 65, 0.2), inset 0 0 15px rgba(0, 255, 65, 0.1);
+      border-radius: 6px;
+      max-width: 420px;
+      width: 100%;
+      box-sizing: border-box;
+      margin: 12px;
+      text-align: center;
+      user-select: none;
+      -webkit-user-select: none;
+      position: relative;
+      overflow: hidden;
+      line-height: 1.5;
+    }
+    
+    /* CRT Scanline effect */
+    #ms-terminal-app::before {
+      content: " ";
+      display: block;
+      position: absolute;
+      top: 0; left: 0; bottom: 0; right: 0;
+      background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+      z-index: 2;
+      background-size: 100% 3px, 3px 100%;
+      pointer-events: none;
+    }
+
+    #ms-terminal-app .ms-header {
+      margin-bottom: 12px;
+      border-bottom: 1px dashed #00FF41;
+      padding-bottom: 10px;
+      position: relative;
+      z-index: 3;
+    }
+    
+    #ms-terminal-app .ms-title {
+      font-size: 1.1rem;
+      font-weight: bold;
+      margin-bottom: 10px;
+      text-shadow: 0 0 4px #00FF41;
+      letter-spacing: 1px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    
+    #ms-terminal-app .ms-blink {
+      animation: ms-blink-anim 1s step-end infinite;
+    }
+    
+    @keyframes ms-blink-anim {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0; }
+    }
+    
+    #ms-terminal-app .ms-stats {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.95rem;
+      font-weight: bold;
+    }
+    
+    #ms-terminal-app .ms-grid {
+      display: grid;
+      grid-template-columns: repeat(9, 1fr);
+      gap: 2px;
+      margin-bottom: 15px;
+      position: relative;
+      z-index: 3;
+    }
+    
+    #ms-terminal-app .ms-cell {
+      aspect-ratio: 1;
+      background-color: rgba(0, 255, 65, 0.08);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+      font-weight: bold;
+      cursor: pointer;
+      border: 1px solid rgba(0, 255, 65, 0.3);
+      transition: all 0.1s;
+    }
+    
+    #ms-terminal-app .ms-cell:hover {
+      background-color: #00FF41;
+      color: #050505;
+      box-shadow: 0 0 8px #00FF41;
+    }
+    
+    #ms-terminal-app .ms-cell.ms-revealed {
+      background-color: transparent;
+      border: 1px dotted rgba(0, 255, 65, 0.2);
+      cursor: default;
+    }
+    
+    #ms-terminal-app .ms-cell.ms-revealed:hover {
+       background-color: transparent;
+       color: inherit;
+       box-shadow: none;
+    }
+    
+    #ms-terminal-app .ms-cell.ms-mine {
+      color: #FF003C;
+      text-shadow: 0 0 5px #FF003C;
+    }
+    
+    #ms-terminal-app .ms-cell.ms-flag {
+      color: #FCE83A;
+      text-shadow: 0 0 5px #FCE83A;
+    }
+    
+    #ms-terminal-app .ms-controls {
+      display: flex;
+      justify-content: center;
+      position: relative;
+      z-index: 3;
+    }
+    
+    #ms-terminal-app .ms-btn {
+      background-color: #050505;
+      color: #00FF41;
+      border: 1px solid #00FF41;
+      padding: 6px 16px;
+      font-family: inherit;
+      font-size: 0.95rem;
+      cursor: pointer;
+      text-transform: uppercase;
+      font-weight: bold;
+      transition: all 0.2s;
+    }
+    
+    #ms-terminal-app .ms-btn:hover {
+      background-color: #00FF41;
+      color: #050505;
+      box-shadow: 0 0 10px #00FF41;
+    }
+    
+    #ms-terminal-app .ms-status {
+      font-weight: bold;
+      min-height: 1.4rem;
+      position: relative;
+      z-index: 3;
+      margin-bottom: 12px;
+      font-size: 0.95rem;
+    }
+
+    /* Colors for adjacent mine counts */
+    .ms-c1 { color: #00FF41; text-shadow: 0 0 2px #00FF41; }
+    .ms-c2 { color: #088F8F; text-shadow: 0 0 2px #088F8F; }
+    .ms-c3 { color: #FCE83A; text-shadow: 0 0 2px #FCE83A; }
+    .ms-c4 { color: #FF003C; text-shadow: 0 0 2px #FF003C; }
+    .ms-c5 { color: #8B00FF; text-shadow: 0 0 2px #8B00FF; }
+    .ms-c6 { color: #00FFFF; text-shadow: 0 0 2px #00FFFF; }
+    .ms-c7 { color: #FFFFFF; text-shadow: 0 0 2px #FFFFFF; }
+    .ms-c8 { color: #999999; }
+    
+    @media (max-width: 400px) {
+      #ms-terminal-app { padding: 12px; }
+      #ms-terminal-app .ms-cell { font-size: 1rem; }
+      #ms-terminal-app .ms-title { font-size: 1rem; }
+    }
+  </style>
+
+  <div class="ms-header">
+    <div class="ms-title">root@researchmap:~/minesweeper<span class="ms-blink">_</span></div>
+    <div class="ms-stats">
+      <span id="ms-flags">MINES: 10</span>
+      <span id="ms-time">TIME: 000</span>
+    </div>
+  </div>
+  
+  <div class="ms-grid" id="ms-board"></div>
+  
+  <div class="ms-status" id="ms-msg">> System Ready...</div>
+  
+  <div class="ms-controls">
+    <button class="ms-btn" id="ms-restart">./reboot.sh</button>
+  </div>
+  
+  <script>
+    (function() {
+      const BOARD_SIZE = 9;
+      const MINES_COUNT = 10;
+      let board = [];
+      let isGameOver = false;
+      let flagsLeft = MINES_COUNT;
+      let revealedCount = 0;
+      let timer = 0;
+      let timerInterval = null;
+      let firstClick = true;
+
+      const boardEl = document.getElementById('ms-board');
+      const flagsEl = document.getElementById('ms-flags');
+      const timeEl = document.getElementById('ms-time');
+      const msgEl = document.getElementById('ms-msg');
+      const restartBtn = document.getElementById('ms-restart');
+
+      function init() {
+        board = [];
+        isGameOver = false;
+        flagsLeft = MINES_COUNT;
+        revealedCount = 0;
+        timer = 0;
+        firstClick = true;
+        clearInterval(timerInterval);
+        timeEl.textContent = 'TIME: 000';
+        flagsEl.textContent = `MINES: ${flagsLeft}`;
+        msgEl.textContent = '> System Ready...';
+        msgEl.style.color = '#00FF41';
+        boardEl.innerHTML = '';
+
+        for (let r = 0; r < BOARD_SIZE; r++) {
+          for (let c = 0; c < BOARD_SIZE; c++) {
+            const cell = {
+              r, c,
+              isMine: false,
+              isRevealed: false,
+              isFlagged: false,
+              neighborMines: 0,
+              element: document.createElement('div')
+            };
+            cell.element.classList.add('ms-cell');
+            
+            // Handle left click (Desktop)
+            cell.element.addEventListener('click', () => onCellClick(cell));
+            
+            // Handle right click (Desktop)
+            cell.element.addEventListener('contextmenu', (e) => {
+              e.preventDefault();
+              onCellRightClick(cell);
+            });
+
+            // Handle long press touch (Mobile fallback for flagging)
+            let touchTimer;
+            cell.element.addEventListener('touchstart', (e) => {
+              if (e.touches.length > 1) return;
+              touchTimer = setTimeout(() => {
+                onCellRightClick(cell);
+                touchTimer = null;
+                // Vibrate if supported
+                if (navigator.vibrate) navigator.vibrate(50);
+              }, 500);
+            }, {passive: true});
+            
+            cell.element.addEventListener('touchend', () => {
+              if (touchTimer) clearTimeout(touchTimer);
+            });
+            cell.element.addEventListener('touchmove', () => {
+              if (touchTimer) clearTimeout(touchTimer);
+            });
+
+            boardEl.appendChild(cell.element);
+            board.push(cell);
+          }
+        }
+      }
+
+      function placeMines(firstR, firstC) {
+        let placed = 0;
+        while (placed < MINES_COUNT) {
+          const idx = Math.floor(Math.random() * board.length);
+          const cell = board[idx];
+          // Ensure first click & its surrounding 8 cells are safe
+          if (!cell.isMine && Math.abs(cell.r - firstR) <= 1 && Math.abs(cell.c - firstC) <= 1) {
+             continue;
+          }
+          if (!cell.isMine) {
+             cell.isMine = true;
+             placed++;
+          }
+        }
+        
+        // Calculate neighbor numbers
+        board.forEach(cell => {
+          if (!cell.isMine) {
+            let count = 0;
+            for (let dr = -1; dr <= 1; dr++) {
+              for (let dc = -1; dc <= 1; dc++) {
+                const nr = cell.r + dr, nc = cell.c + dc;
+                if (nr >= 0 && nr < BOARD_SIZE && nc >= 0 && nc < BOARD_SIZE) {
+                  if (getCell(nr, nc).isMine) count++;
+                }
+              }
+            }
+            cell.neighborMines = count;
+          }
+        });
+      }
+
+      function getCell(r, c) {
+        return board[r * BOARD_SIZE + c];
+      }
+
+      function startTimer() {
+        timerInterval = setInterval(() => {
+          if(!isGameOver) {
+            timer++;
+            timeEl.textContent = `TIME: ${timer.toString().padStart(3, '0')}`;
+          }
+        }, 1000);
+      }
+
+      function onCellClick(cell) {
+        if (isGameOver || cell.isRevealed || cell.isFlagged) return;
+
+        if (firstClick) {
+          firstClick = false;
+          placeMines(cell.r, cell.c);
+          startTimer();
+          msgEl.textContent = '> Scanning sector...';
+        }
+
+        if (cell.isMine) {
+          gameOver(false);
+          return;
+        }
+
+        reveal(cell);
+
+        if (revealedCount === (BOARD_SIZE * BOARD_SIZE) - MINES_COUNT) {
+          gameOver(true);
+        }
+      }
+
+      function onCellRightClick(cell) {
+        if (isGameOver || cell.isRevealed || firstClick) return;
+
+        if (!cell.isFlagged && flagsLeft > 0) {
+          cell.isFlagged = true;
+          cell.element.textContent = 'F';
+          cell.element.classList.add('ms-flag');
+          flagsLeft--;
+        } else if (cell.isFlagged) {
+          cell.isFlagged = false;
+          cell.element.textContent = '';
+          cell.element.classList.remove('ms-flag');
+          flagsLeft++;
+        }
+        flagsEl.textContent = `MINES: ${flagsLeft}`;
+      }
+
+      function reveal(cell) {
+        if (cell.isRevealed || cell.isFlagged) return;
+        cell.isRevealed = true;
+        cell.element.classList.add('ms-revealed');
+        revealedCount++;
+
+        if (cell.neighborMines > 0) {
+          cell.element.textContent = cell.neighborMines;
+          cell.element.classList.add(`ms-c${cell.neighborMines}`);
+        } else {
+          // Recursive reveal for blank tiles
+          for (let dr = -1; dr <= 1; dr++) {
+            for (let dc = -1; dc <= 1; dc++) {
+              const nr = cell.r + dr, nc = cell.c + dc;
+              if (nr >= 0 && nr < BOARD_SIZE && nc >= 0 && nc < BOARD_SIZE) {
+                reveal(getCell(nr, nc));
+              }
+            }
+          }
+        }
+      }
+
+      function gameOver(won) {
+        isGameOver = true;
+        clearInterval(timerInterval);
+        if (won) {
+          msgEl.textContent = '> MAIN SYSTEM: SECURED.';
+          msgEl.style.color = '#FCE83A';
+          // Flag all remaining unflagged mines naturally
+          board.forEach(cell => {
+            if (cell.isMine && !cell.isFlagged) {
+              cell.isFlagged = true;
+              cell.element.textContent = 'F';
+              cell.element.classList.add('ms-flag');
+            }
+          });
+          flagsEl.textContent = `MINES: 0`;
+        } else {
+          msgEl.textContent = '> FATAL ERROR: CONNECTION LOST';
+          msgEl.style.color = '#FF003C';
+          board.forEach(cell => {
+            if (cell.isMine) {
+              cell.element.classList.add('ms-revealed', 'ms-mine');
+              cell.element.textContent = 'X';
+            } else if (cell.isFlagged) {
+              cell.element.textContent = 'X';
+              cell.element.style.color = '#FCE83A';
+            }
+          });
+        }
+      }
+
+      restartBtn.addEventListener('click', init);
+      init();
+    })();
+  </script>
+</div>
+<!-- /Terminal Minesweeper Widget -->
+</body>
+</html>
